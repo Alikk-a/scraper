@@ -1,0 +1,39 @@
+<h1>test data</h1>
+
+<table>
+  <thead>
+  <tr>
+    <th scope="col">Skill</th>
+    <th scope="col">Amout</th>
+  </tr>
+  </thead>
+  <tbody>
+  <% @grouped.each do |exp| %>
+    <tr>
+      <td class="cell-left"><%= exp[0] %></td>
+      <td><%= exp[1].length %></td>
+    </tr>
+  <% end %>
+  </tbody>
+</table>
+<hr>
+
+<%# @skills_sorted.each do |exp| %>
+<!--  <p><%#= exp %></p>-->
+<%# end %>
+<style>
+  table, th, td {
+    border: 1px solid;
+    border-collapse: collapse;
+    padding: 5px;
+  }
+
+  td {
+    text-align: right;
+    padding: 3px;
+  }
+
+  .cell-left {
+    text-align: left;
+  }
+</style>

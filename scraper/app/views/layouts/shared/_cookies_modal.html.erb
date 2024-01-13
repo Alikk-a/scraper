@@ -1,0 +1,32 @@
+<% if cookies[:cookies_accepted].nil? %>
+
+  <div class="modal fade" id="cookiesModal" aria-labelledby="cookiesModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="exampleModalLabel">WE VALUE YOUR PRIVASY</h5>
+        </div>
+        <div class="modal-body">
+          <p>We use cookies to improve your experience on our website. We use the most minimal
+            set of information about your visit.</p>
+
+          <p>Please note that your consent will be valid for all of our subdomains.
+            You can change or withdraw your consent at any time. We respect your choice
+            and are committed to providing you with a transparent and safe browsing experience.
+            <%= link_to 'Privacy & security', privacy_policy_path %>
+          </p>
+        </div>
+        <div class="modal-footer">
+          <%= button_to "Accept cookies", cookies_path(accept_cookies: true), method: :post, class: "btn btn-sm btn-success" %>
+          <%= button_to "Reject cookies", cookies_path(accept_cookies: false), method: :post, class: "btn btn-sm btn-secondary" %>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    setTimeout(function () {
+      $('#cookiesModal').modal('show');
+    }, 3000);
+  </script>
+
+<% end %>

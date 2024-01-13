@@ -1,0 +1,39 @@
+<h3>ALL offers: <%= @all_jobs.length %> | ALL proposals: <%= @all_proposals %></h3>
+
+<table>
+  <thead>
+  <tr>
+    <th scope="col">Category</th>
+    <th scope="col">Amout</th>
+    <th scope="col">Sum Proposals</th>
+    <th scope="col">AVG Proposals</th>
+  </tr>
+  </thead>
+  <tbody>
+  <% @categories.each do |exp| %>
+    <tr>
+      <td class="cell-left"><%= exp[0] %></td>
+      <td><%= exp[1] %></td>
+      <td><%= exp[2] %></td>
+      <td><%= number_with_precision(exp[2]/exp[1].to_f, precision: 1) %></td>
+    </tr>
+  <% end %>
+  </tbody>
+</table>
+
+<style>
+  table, th, td {
+    border: 1px solid;
+    border-collapse: collapse;
+    padding: 5px;
+  }
+
+  td {
+    text-align: right;
+    padding: 3px;
+  }
+
+  .cell-left {
+    text-align: left;
+  }
+</style>

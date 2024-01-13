@@ -1,0 +1,83 @@
+<h1>Basic data</h1>
+
+<table>
+  <thead>
+  <tr>
+    <th scope="col">Type_offer</th>
+    <th scope="col">Amout of offers</th>
+  </tr>
+  </thead>
+  <tbody>
+  <% @search_endpoint.each do |endpoint| %>
+    <tr>
+      <td class="cell-left"><%= endpoint.search_endpoint %></td>
+      <td><%= endpoint.count_id %></td>
+    </tr>
+  <% end %>
+  </tbody>
+</table>
+<hr>
+<table>
+  <thead>
+  <tr>
+    <th scope="col">Type_offer</th>
+    <th scope="col">Amout of offers</th>
+  </tr>
+  </thead>
+  <tbody>
+  <% @type_project.each do |type| %>
+    <tr>
+      <td class="cell-left"><%= type.project_type %></td>
+      <td><%= type.count_id %></td>
+    </tr>
+  <% end %>
+  </tbody>
+</table>
+<hr>
+<table>
+  <thead>
+  <tr>
+    <th scope="col">country</th>
+    <th scope="col">Amout of offers</th>
+    <th scope="col">Sum Hire Rate</th>
+    <th scope="col">AVG Hire Rate</th>
+    <th scope="col">Sum Payd Hours</th>
+    <th scope="col">AVG Payd Hours</th>
+    <th scope="col">Total Spent</th>
+    <th scope="col">AVG Total Spent</th>
+  </tr>
+  </thead>
+  <tbody>
+  <% @countries.each do |country| %>
+    <tr>
+      <td class="cell-left"><%= country.client_location %></td>
+      <td><%= country.count_id %></td>
+      <td><%= number_with_delimiter(country.total_h_rate, delimiter: "'") %></td>
+      <td><%= (country.total_h_rate? ? country.total_h_rate : 0) / (country.count_id? ? country.count_id : 0) %></td>
+      <td><%= number_with_delimiter(country.total_paid_hours, delimiter: "'") %></td>
+      <td><%= (country.total_paid_hours? ? country.total_paid_hours : 0) / (country.count_id? ? country.count_id : 0) %></td>
+      <td><%= number_with_delimiter(country.total_spent, delimiter: "'") %></td>
+      <td><%= (country.total_spent? ? country.total_spent : 0) / (country.count_id? ? country.count_id : 0) %></td>
+    </tr>
+  <% end %>
+  </tbody>
+</table>
+
+
+<!--<h5><%#= @tag.inspect %></h5>-->
+<style>
+  table, th, td {
+    border: 1px solid;
+    border-collapse: collapse;
+    padding: 5px;
+  }
+
+  td {
+    text-align: right;
+    padding: 3px;
+  }
+
+  .cell-left {
+    text-align: left;
+  }
+</style>

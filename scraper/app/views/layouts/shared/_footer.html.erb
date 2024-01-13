@@ -1,0 +1,41 @@
+<footer class="<%= fixed ? 'fixed-bottom' : '' %>">
+  <div class='container'>
+    <div class='footer-wrapper'>
+      <div class ="headline-wrapper">
+        <div class="headline-logo">
+          <%= link_to root_path, class: 'navbar-brand' do %> 
+            <%= image_tag 'logos/footer-logo-orange.png' %>
+          <% end %>
+        </div>
+        <div class="headline-media" style='display: none;'>
+          <h2>Headline Media Logos</h2>
+        </div>
+      </div>    
+
+      <div class='row'>
+        <div class='col-3'>
+          <ul class='list-unstyled'>
+            <li><%= link_to 'Official rules', official_rules_path, class: 'nav-link' %></li>
+            <li><%= link_to 'Terms & Conditions', terms_conditions_path, class: 'nav-link' %></li>
+            <li><%= link_to 'Privacy Policy', privacy_policy_path, class: 'nav-link' %></li>
+            <li><%= link_to 'FAQ', faq_path, class: 'nav-link' %></li>
+          </ul>
+        </div>
+        <div class='col-3'>
+          <ul class='list-unstyled'>
+            <li><%= link_to 'Contact Us', contact_us_path, class: 'nav-link' %></li>
+            <li>Careers</li>
+            <li><%= link_to 'Press Kit', press_kit_path, class: 'nav-link' %></li>
+          </ul>
+        </div>
+        <div class='col-3'>
+          <ul class='list-unstyled'>
+            <li><%= link_to 'About Us', about_us_path, class: 'nav-link' %></li>
+            <li><%= link_to 'News', news_index_path, class: 'nav-link' %></li>
+            <li><%= link_to 'Shop', spree_path, target: 'new', class: 'nav-link' %></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>

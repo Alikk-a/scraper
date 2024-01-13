@@ -1,0 +1,3 @@
+class UpworkJob < ApplicationRecord
+
+end
