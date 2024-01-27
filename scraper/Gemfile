@@ -46,7 +46,7 @@ gem "engtagger"
 gem 'httparty'
 gem 'roo'
 gem "capybara"
-gem "selenium-webdriver"
+gem 'selenium-webdriver'
 gem 'pry'
 
 # Use Sass to process CSS

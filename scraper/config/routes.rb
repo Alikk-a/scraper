@@ -14,5 +14,6 @@ Rails.application.routes.draw do
   get 'scraper_one_job', to: 'scraper#one_job'
   get 'scraper_list_jobs', to: 'scraper#list_jobs'
   get 'scraper_set_authorization', to: 'scraper#set_authorization'
+  get 'scraper_testing', to: 'scraper#testing'
 
 end
