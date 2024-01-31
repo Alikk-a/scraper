@@ -68,8 +68,4 @@ Rails.application.configure do
   # Uncomment if you wish to allow Action Cable access from any origin.
   # config.action_cable.disable_request_forgery_protection = true
 
-  # Rails.logger = Logger.new('log/scraper.log')
-  # Rails.logger.level = Logger::WARN
-  # Rails.logger.datetime_format = "%Y-%m-%d %H:%M:%S"
-
 end
