@@ -18,10 +18,15 @@ class ScraperController < ApplicationController
   end
 
   def index
-    @list_link_jobs = list_jobs('java', 'Ukraine', 3)
 
+    @list_link_jobs = list_jobs('ruby on rails', 'India', 3)
     one_job
 
+    @list_link_jobs = list_jobs('java', 'India', 1)
+    one_job
+
+    @list_link_jobs = list_jobs('ruby on rails', 'Pakistan', 3)
+    one_job
   end
 
 
@@ -74,7 +79,7 @@ class ScraperController < ApplicationController
       sleep randon_sleep
     end
 
-    render :finish
+    # render :finish
   end
 
   def list_jobs(category = 'python', area = 'Germany', deep_page = 1)
@@ -157,12 +162,24 @@ class ScraperController < ApplicationController
     end
     # --------- go to the bottom if got not all jobs ----------
     sleep 3
-    # js_code = "window.element = document.getElementsByClassName('jobs-list-feedback--fixed-width');"
+
+    # find buttons of pagination
     js_code = "window.element = document.getElementsByClassName('artdeco-pagination__indicator');"
     driver.execute_script(js_code)
     wait.until { driver.execute_script("return window.element !== undefined;") }
-    feedback_buttons = driver.execute_script("return window.element;")
-    driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth' });", feedback_buttons[0])
+    scroll_down = driver.execute_script("return window.element;")
+
+    # if no pagination - find block of feedback
+    if scroll_down[0] == nil
+      js_code = "window.element = document.getElementsByClassName('jobs-list-feedback--fixed-width');"
+      driver.execute_script(js_code)
+      wait.until { driver.execute_script("return window.element !== undefined;") }
+      scroll_down = driver.execute_script("return window.element;")
+    end
+
+    driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth' });", scroll_down[0])
+
+
 
     sleep 9
     link_collection_2 = get_list_jobs(driver, wait)
@@ -172,8 +189,8 @@ class ScraperController < ApplicationController
       return link_collection
     end
 
-    # --------- go up if not all jobs ----------
-    driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth' });", pagination_buttons[link_collection_2.length / 3])
+    # --------- go up if not all jobs yet ----------
+    driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth' });", link_collection_2[link_collection_2.length / 3])
     sleep 13
     link_collection_3 = get_list_jobs(driver, wait)
     log_links(link_collection_3, '3', page)
@@ -196,6 +213,7 @@ class ScraperController < ApplicationController
           new_job.linkedin_id_job = job_id
           new_job.type_job = category
           new_job.location = area
+          @custom_logger.info 'Saved: ' + job_id
           new_job.save
         end
       end
