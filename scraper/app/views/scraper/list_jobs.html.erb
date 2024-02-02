@@ -1,0 +1,22 @@
+<h1>LIST</h1>
+
+<!--<h5><%#= @length.to_s %></h5>-->
+<hr>
+<!--<div><%#= @description.gsub("\n", "<br>").html_safe %></div>-->
+<ol>
+<% @list_link_jobs.each do |job| %>
+  <li><h3><%= job.to_s %></h3></li>
+<% end %>
+</ol>
+
+<!--<ol>-->
+<%# @description.each do |job| %>
+<!--  <li><%#= job.gsub(/\n/, '<br/>').html_safe %></li>-->
+<%# end %>
+<!--</ol>-->
+
+<!--<ol>-->
+<%# @title.each do |job| %>
+<!--  <li><%#= job.to_s %></li>-->
+<%# end %>
+<!--</ol>-->

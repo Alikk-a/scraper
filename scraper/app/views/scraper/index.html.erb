@@ -1,0 +1,8 @@
+<h1>SCRAP-SCRAP Finished</h1>
+
+<hr>
+<!--<div><%#= @description.gsub("\n", "<br>").html_safe %></div>-->
+
+<% @list_link_jobs.each do |job| %>
+  <li><h3><%= job.to_s %></h3></li>
+<% end %>
