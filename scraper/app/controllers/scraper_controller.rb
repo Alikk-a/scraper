@@ -11,7 +11,7 @@ class ScraperController < ApplicationController
     @list_link_jobs = []
     list_link_jobs = Linkedin.where('title IS ? And posted_at IS ?', nil, nil).order(:id)
     list_link_jobs.each do |job|
-      @list_link_jobs << job.linkedin_id_job
+      @list_link_jobs << (job.linkedin_id_job + ' / ' + job.type_job + ' / ' + job.location)
     end
     @description = []
     render :list_jobs
@@ -19,14 +19,25 @@ class ScraperController < ApplicationController
 
   def index
 
-    @list_link_jobs = list_jobs('ruby on rails', 'India', 3)
+    @list_link_jobs = list_jobs('ruby on rails', 'China', 3)
     one_job
 
-    @list_link_jobs = list_jobs('java', 'India', 1)
+    @list_link_jobs = list_jobs('java', 'China', 3)
     one_job
 
-    @list_link_jobs = list_jobs('ruby on rails', 'Pakistan', 3)
+    @list_link_jobs = list_jobs('python', 'China', 5)
     one_job
+
+    if missed_jobs == Linkedin.where('title IS ? And posted_at IS ?', nil, nil).length > 0
+      @custom_logger.info 'Dop pass 1.  Missed jobs in first pass: ' + missed_jobs.to_s
+      one_job
+    end
+
+    if missed_jobs == Linkedin.where('title IS ? And posted_at IS ?', nil, nil).length > 0
+      @custom_logger.info 'Dop pass 2.  Missed jobs in first pass: ' + missed_jobs.to_s
+      one_job
+    end
+
   end
 
 
