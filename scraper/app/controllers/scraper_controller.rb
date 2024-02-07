@@ -9,7 +9,7 @@ class ScraperController < ApplicationController
 
   def testing
     @list_link_jobs = []
-    list_link_jobs = Linkedin.where('title IS ? And posted_at IS ?', nil, nil).order(:id)
+    list_link_jobs = get_unfilled_jobs.order(:id)
     list_link_jobs.each do |job|
       @list_link_jobs << (job.linkedin_id_job + ' / ' + job.type_job + ' / ' + job.location)
     end
@@ -19,22 +19,23 @@ class ScraperController < ApplicationController
 
   def index
 
-    @list_link_jobs = list_jobs('ruby on rails', 'China', 3)
+    @list_link_jobs = list_jobs('ruby', 'Italy', 1)
     one_job
 
-    @list_link_jobs = list_jobs('java', 'China', 3)
+    # @list_link_jobs = list_jobs('java', 'Italy', 3)
+    # one_job
+
+    @list_link_jobs = list_jobs('ruby', 'Spain', 1)
     one_job
 
-    @list_link_jobs = list_jobs('python', 'China', 5)
-    one_job
 
-    if missed_jobs == Linkedin.where('title IS ? And posted_at IS ?', nil, nil).length > 0
-      @custom_logger.info 'Dop pass 1.  Missed jobs in first pass: ' + missed_jobs.to_s
+    if get_unfilled_jobs.length > 0
+      @custom_logger.info '-------------------  Dop pass 1.  Missed jobs after first pass: ' + get_unfilled_jobs.length.to_s
       one_job
     end
 
-    if missed_jobs == Linkedin.where('title IS ? And posted_at IS ?', nil, nil).length > 0
-      @custom_logger.info 'Dop pass 2.  Missed jobs in first pass: ' + missed_jobs.to_s
+    if get_unfilled_jobs.length > 0
+      @custom_logger.info '-------------------  Dop pass 2.  Missed jobs after second pass: ' + get_unfilled_jobs.length.to_s
       one_job
     end
 
@@ -42,7 +43,7 @@ class ScraperController < ApplicationController
 
 
   def one_job
-    needed_pages = Linkedin.where('title IS ? And posted_at IS ?', nil, nil).order(:id)
+    needed_pages = get_unfilled_jobs.order(:id)
 
     if needed_pages.length == 0
       @output = 'Nothing to scrap'
@@ -106,36 +107,51 @@ class ScraperController < ApplicationController
 
     driver = Selenium::WebDriver.for :firefox, options: options
     driver.manage.window.resize_to(1910, 1039)
-    driver.get 'https://www.linkedin.com/'
 
-    @custom_logger.info '--------- Start with ' + category.upcase + ' in ' + area.upcase + '---------'
-
-    # --------- go to Find_jobs page ----------
-    sleep 2.seconds
-    button_jobs = wait.until do
-      driver.find_element(xpath: '//a[contains(@href,"/jobs/")]')
+    begin
+      driver.get 'https://www.linkedin.com/'
+      @custom_logger.info '--------- Start with ' + category.upcase + ' in ' + area.upcase + '---------'
+    rescue HTTParty::Error => e
+      @custom_logger.warn "HTTP Error: #{e.message} for #{job.linkedin_id_job}"
+    rescue StandardError => e
+      @custom_logger.warn "Error: #{e.message} for #{job.linkedin_id_job}"
     end
-    button_jobs.click
 
-    # -------- set filter for category jobs ----------
-    sleep 1
-    search_input = wait.until do
-      driver.find_element(xpath: "//*[contains(@id, 'jobs-search-box-keyword')]")
+    begin
+      # --------- go to Find_jobs page ----------
+      sleep 2.seconds
+      button_jobs = wait.until do
+        driver.find_element(xpath: '//a[contains(@href,"/jobs/")]')
+      end
+      button_jobs.click
+
+      # -------- set filter for category jobs ----------
+      sleep 1
+      search_input = wait.until do
+        driver.find_element(xpath: "//*[contains(@id, 'jobs-search-box-keyword')]")
+      end
+      fill_form(search_input, category, true)
+
+      # -------- set filter for category jobs ----------
+      location = wait.until do
+        driver.find_element(xpath: "//*[contains(@id, 'jobs-search-box-location')]")
+      end
+      sleep 2
+      location.clear
+      fill_form(location, area, true)
+    rescue StandardError => e
+      @custom_logger.warn "Error: #{e.message} for #{job.linkedin_id_job}"
     end
-    fill_form(search_input, category, true)
 
-    # -------- set filter for category jobs ----------
-    location = wait.until do
-      driver.find_element(xpath: "//*[contains(@id, 'jobs-search-box-location')]")
+    begin
+      # get first page ---------
+      html_link_collection = list_one_page_jobs(driver, wait, 1)
+      @list_link_jobs = check_and_save_links(html_link_collection, category, area)
+    rescue StandardError => e
+      @custom_logger.warn "Error: #{e.message} for #{job.linkedin_id_job}"
     end
-    sleep 2
-    location.clear
-    fill_form(location, area, true)
 
-    # get first page ---------
-    html_link_collection = list_one_page_jobs(driver, wait, 1)
-    @list_link_jobs = check_and_save_links(html_link_collection, category, area)
-
+    # get all next pages ---------
     page = 2
     while page <= deep_page
       begin
@@ -144,7 +160,6 @@ class ScraperController < ApplicationController
         end
         button_page.click
       rescue StandardError => e
-        # Handle other types of errors
         @custom_logger.warn "Error: #{e.message}"
         page = deep_page
       end
@@ -159,74 +174,82 @@ class ScraperController < ApplicationController
 
   def list_one_page_jobs(driver, wait, page)
     jobs_per_page = 25
+    begin
+      sleep 3
+      link_collection = get_list_jobs(driver, wait)
+      # --------- go to last received job ----------
+      driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth' });", link_collection[-1])
 
-    sleep 3
-    link_collection = get_list_jobs(driver, wait)
-    # --------- go to last received job ----------
-    driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth' });", link_collection[-1])
+      sleep 5
+      link_collection = get_list_jobs(driver, wait)
+      log_links(link_collection, '1', page)
+      if link_collection.length > jobs_per_page - 1
+        return link_collection
+      end
+      # --------- go to the bottom if got not all jobs ----------
+      sleep 3
 
-    sleep 5
-    link_collection = get_list_jobs(driver, wait)
-    log_links(link_collection, '1', page)
-    if link_collection.length > jobs_per_page - 1
-      return link_collection
-    end
-    # --------- go to the bottom if got not all jobs ----------
-    sleep 3
-
-    # find buttons of pagination
-    js_code = "window.element = document.getElementsByClassName('artdeco-pagination__indicator');"
-    driver.execute_script(js_code)
-    wait.until { driver.execute_script("return window.element !== undefined;") }
-    scroll_down = driver.execute_script("return window.element;")
-
-    # if no pagination - find block of feedback
-    if scroll_down[0] == nil
-      js_code = "window.element = document.getElementsByClassName('jobs-list-feedback--fixed-width');"
+      # find buttons of pagination
+      js_code = "window.element = document.getElementsByClassName('artdeco-pagination__indicator');"
       driver.execute_script(js_code)
       wait.until { driver.execute_script("return window.element !== undefined;") }
       scroll_down = driver.execute_script("return window.element;")
+
+      # if no pagination - find block of feedback
+      if scroll_down[0] == nil
+        js_code = "window.element = document.getElementsByClassName('jobs-list-feedback--fixed-width');"
+        driver.execute_script(js_code)
+        wait.until { driver.execute_script("return window.element !== undefined;") }
+        scroll_down = driver.execute_script("return window.element;")
+      end
+
+      driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth' });", scroll_down[0])
+
+      sleep 9
+      link_collection_2 = get_list_jobs(driver, wait)
+      log_links(link_collection_2, '2', page)
+      link_collection = link_collection | link_collection_2
+      if link_collection.length > jobs_per_page - 1
+        return link_collection
+      end
+
+      # --------- go up if not all jobs yet ----------
+      driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth' });", link_collection_2[link_collection_2.length / 3])
+      sleep 13
+      link_collection_3 = get_list_jobs(driver, wait)
+      log_links(link_collection_3, '3', page)
+      link_collection = link_collection | link_collection_3
+    rescue StandardError => e
+      @custom_logger.warn "Error: #{e.message} for #{job.linkedin_id_job}"
     end
 
-    driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth' });", scroll_down[0])
-
-
-
-    sleep 9
-    link_collection_2 = get_list_jobs(driver, wait)
-    log_links(link_collection_2, '2', page)
-    link_collection = link_collection | link_collection_2
-    if link_collection.length > jobs_per_page - 1
-      return link_collection
-    end
-
-    # --------- go up if not all jobs yet ----------
-    driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth' });", link_collection_2[link_collection_2.length / 3])
-    sleep 13
-    link_collection_3 = get_list_jobs(driver, wait)
-    log_links(link_collection_3, '3', page)
-    link_collection = link_collection | link_collection_3
   end
 
   def check_and_save_links(object_links, category, area)
     list_link_jobs = []
     object_links.each_with_index do |obj, index|
-      link = obj.attribute("href")
-      @custom_logger.info (index + 1).to_s + ': ' + link.to_s.truncate(83)
+      begin
+        link = obj.attribute("href")
+        @custom_logger.info (index + 1).to_s + ': ' + link.to_s.truncate(83)
 
-      if link.include?('/jobs/view/') && !link.include?('alternate')
-        list_link_jobs << link
-        # job_id = link.match(/\/(\d+)\/?$/)[1]
-        job_id = link.split('/')[5]
-        if Linkedin.where(linkedin_id_job: job_id).empty?
-          new_job = Linkedin.new
-          new_job.link_job = link
-          new_job.linkedin_id_job = job_id
-          new_job.type_job = category
-          new_job.location = area
-          @custom_logger.info 'Saved: ' + job_id
-          new_job.save
+        if link.include?('/jobs/view/') && !link.include?('alternate')
+          list_link_jobs << link
+          # job_id = link.match(/\/(\d+)\/?$/)[1]
+          job_id = link.split('/')[5]
+          if Linkedin.where(linkedin_id_job: job_id).empty?
+            new_job = Linkedin.new
+            new_job.link_job = link
+            new_job.linkedin_id_job = job_id
+            new_job.type_job = category
+            new_job.location = area
+            @custom_logger.info 'Saved: ' + job_id
+            new_job.save
+          else
+            @custom_logger.info 'Job: ' + job_id + ' already exist in DB'
+          end
         end
+      rescue StandardError => e
+        @custom_logger.warn "Error: #{e.message}"
       end
     end
     @custom_logger.info 'Amount links: ' + object_links.length.to_s
@@ -242,8 +265,12 @@ class ScraperController < ApplicationController
   end
 
   def get_list_jobs(driver, wait)
-    html_link_collection = wait.until do
-      driver.find_elements(xpath: '//a[contains(@class,"job-card-list__title")]')
+    begin
+      html_link_collection = wait.until do
+        driver.find_elements(xpath: '//a[contains(@class,"job-card-list__title")]')
+      end
+    rescue StandardError => e
+      @custom_logger.warn "Error: #{e.message} for #{job.linkedin_id_job}"
     end
     # ------ getting list using JS ----------------------
     # js_code_s = "window.el = document.getElementsByClassName('job-card-list__title'); console.log('Amount = '+Object.keys(el).length);"
@@ -276,6 +303,10 @@ class ScraperController < ApplicationController
   def set_logger
     @custom_logger = Logger.new("log/scraper_link.log")
     @custom_logger.datetime_format = "%Y-%m-%d %H:%M:%S"
+  end
+
+  def get_unfilled_jobs
+    Linkedin.where('title IS ? And posted_at IS ?', nil, nil)
   end
 
   def one_job_selenium
