@@ -19,25 +19,32 @@ class ScraperController < ApplicationController
 
   def index
 
-    @list_link_jobs = list_jobs('ruby', 'Italy', 1)
-    one_job
+    threads = []
+    threads << Thread.new { list_jobs('ruby', 'Italy', 1) }
+    sleep 5
+    threads <<  Thread.new { list_jobs('ruby', 'Spain', 1) }
 
     # @list_link_jobs = list_jobs('java', 'Italy', 3)
-    # one_job
 
-    @list_link_jobs = list_jobs('ruby', 'Spain', 1)
-    one_job
+    # ['Finland', 'Norven'].each do |area|
+    # end
 
-
-    if get_unfilled_jobs.length > 0
-      @custom_logger.info '-------------------  Dop pass 1.  Missed jobs after first pass: ' + get_unfilled_jobs.length.to_s
-      one_job
+    sleep 21
+    empty_attempts = 0
+    while empty_attempts < 11
+      if get_unfilled_jobs.length > 0
+        @custom_logger.info '-------------------  Pass with: ' + get_unfilled_jobs.length.to_s + 'jobs to get ------------'
+        # threads << Thread.new do
+        one_job
+        # end
+      else
+        empty_attempts += 1
+        sleep 3
+      end
     end
 
-    if get_unfilled_jobs.length > 0
-      @custom_logger.info '-------------------  Dop pass 2.  Missed jobs after second pass: ' + get_unfilled_jobs.length.to_s
-      one_job
-    end
+    # main - wait
+    threads.each(&:join)
 
   end
 
