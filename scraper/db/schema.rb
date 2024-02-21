@@ -10,9 +10,40 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2024_02_01_163223) do
+ActiveRecord::Schema[7.0].define(version: 2024_02_18_181030) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
+
+  create_table "linkedin_companies", force: :cascade do |t|
+    t.string "link_company"
+    t.string "id_company"
+    t.string "search_by"
+    t.integer "attempts", default: 0
+    t.string "name"
+    t.string "headquarters"
+    t.string "founded"
+    t.string "number_employees"
+    t.string "company_type"
+    t.string "website"
+    t.text "description"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["id_company"], name: "index_linkedin_companies_on_id_company"
+  end
+
+  create_table "linkedin_people", force: :cascade do |t|
+    t.string "link_person"
+    t.string "id_person"
+    t.string "search_by"
+    t.integer "attempts", default: 0
+    t.string "name"
+    t.string "subtitle"
+    t.string "location"
+    t.text "description"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["id_person"], name: "index_linkedin_people_on_id_person"
+  end
 
   create_table "linkedins", force: :cascade do |t|
     t.string "link_job"
@@ -24,6 +55,7 @@ ActiveRecord::Schema[7.0].define(version: 2024_02_01_163223) do
     t.datetime "updated_at", null: false
     t.string "type_job"
     t.string "location"
+    t.integer "attempts", default: 0
     t.index ["linkedin_id_job"], name: "index_linkedins_on_linkedin_id_job"
   end
 

@@ -1,0 +1,2 @@
+class LinkedinCompany < ApplicationRecord
+end

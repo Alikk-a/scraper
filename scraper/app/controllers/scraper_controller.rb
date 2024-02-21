@@ -7,47 +7,653 @@ class ScraperController < ApplicationController
 
   before_action :set_logger
 
-  def testing
-    @list_link_jobs = []
-    list_link_jobs = get_unfilled_jobs.order(:id)
-    list_link_jobs.each do |job|
-      @list_link_jobs << (job.linkedin_id_job + ' / ' + job.type_job + ' / ' + job.location)
+  def testing(deep_page = 1)
+
+    profile = Selenium::WebDriver::Firefox::Profile.from_name("default")
+    options = Selenium::WebDriver::Firefox::Options.new(profile: profile)
+    options.add_argument('--start-maximized')
+    options.add_argument('--ignore-certificate-errors')
+    options.add_argument('--disable-popup-blocking')
+    options.add_argument('--disable-translate')
+
+    wait = Selenium::WebDriver::Wait.new(timeout: 11)
+
+    driver = Selenium::WebDriver.for :firefox, options: options
+    driver.manage.window.resize_to(1910, 1039)
+
+    link = 'https://www.linkedin.com/search/results/people/?keywords='
+    search = 'it recruiter&page='
+    get_page = '35'
+
+
+    begin
+      driver.get link + search + get_page
+      @custom_logger.info "--------- Start GET contact with #{search} ---------"
+    rescue HTTParty::Error => e
+      @custom_logger.warn "HTTP Error: #{e.message}"
+    rescue StandardError => e
+      @custom_logger.warn "Error: #{e.message}"
     end
-    @description = []
-    render :list_jobs
+
+    begin
+      list_one_page_contacts(driver, wait, 1)
+    rescue StandardError => e
+      @custom_logger.warn "Error: #{e.message}"
+    end
+
+    # get all next pages ---------
+    page = 2
+    while page <= deep_page
+      begin
+        button_page = wait.until do
+          driver.find_element(xpath: "//button[contains(@aria-label, 'Page #{page}')]")
+        end
+        button_page.click
+      rescue StandardError => e
+        @custom_logger.warn "Error: #{e.message}"
+        page = deep_page
+      end
+
+      sleep 3
+      list_one_page_contacts(driver, wait, page)
+      page += 1
+    end
+
+    render :finish
+    # @list_link_jobs = []
+    # list_link_jobs = get_unfilled_people.order(:id)
+    # list_link_jobs.each do |job|
+    #   @list_link_jobs << (job.id.to_s + ' / ' + job.id_person + ' / ' + job.search_by)
+    # end
+    # @description = []
+    # render :list_jobs
   end
 
-  def index
+  def list_one_page_contacts(driver, wait, page)
+    sleep 3
+    begin
+      # scroll to block of pagination
+      js_code = "window.element = document.getElementsByClassName('artdeco-pagination__indicator');"
+      driver.execute_script(js_code)
+      wait.until { driver.execute_script("return window.element !== undefined;") }
+      scroll_down = driver.execute_script("return window.element;")
+      # driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth' });", scroll_down[0])
 
-    threads = []
-    threads << Thread.new { list_jobs('ruby', 'Italy', 1) }
-    sleep 5
-    threads <<  Thread.new { list_jobs('ruby', 'Spain', 1) }
+      sleep 3
+      link_collection = wait.until do
+        # driver.find_elements(xpath: "//button[contains(@aria-label, 'Invite Julia Yachmen to connect')]")
+        driver.find_elements(:xpath, "//button[contains(@aria-label, 'Invite') and contains(@aria-label, 'connect')]")
+      end
+      @custom_logger.info link_collection.to_s
+      driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth' });", link_collection[0])
+      link_collection[0].click
 
-    # @list_link_jobs = list_jobs('java', 'Italy', 3)
-
-    # ['Finland', 'Norven'].each do |area|
+    rescue StandardError => e
+      @custom_logger.warn "Error: #{e.message}"
+    end
+    # sleep 9
+    # link_collection_2 = get_list_companies(driver, wait)
+    # log_links(link_collection_2, '2', page)
+    # link_collection = link_collection | link_collection_2
+    # if link_collection.length > items_per_page - 1
+    #   return link_collection
     # end
+  end
 
-    sleep 21
+
+  # ---------  GET People ------------------------------------------------
+
+  def people
+    threads = []
+
+    threads << Thread.new do
+      search = 'data scientist'
+
+      link = 'https://www.linkedin.com/search/results/people/?geoUrn=%5B%22101282230%22%5D'
+      list_people(link, search, 3)
+
+      # sleep 5
+
+    end
+
+    sleep 130
     empty_attempts = 0
     while empty_attempts < 11
-      if get_unfilled_jobs.length > 0
-        @custom_logger.info '-------------------  Pass with: ' + get_unfilled_jobs.length.to_s + 'jobs to get ------------'
+      if get_unfilled_people.length > 0
+        @logger_one_job.info '**********************  Pass with: ' + get_unfilled_people.length.to_s + ' jobs to get *****************'
         # threads << Thread.new do
-        one_job
+        one_person
         # end
+        empty_attempts = 0
       else
         empty_attempts += 1
         sleep 3
       end
     end
+    @logger_one_job.info '**********************  FINISH *****************'
 
-    # main - wait
     threads.each(&:join)
+
+    render :finish
+  end
+
+  def one_person
+    needed_pages = get_unfilled_people.order(:id)
+
+    usa_array = ['Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36',
+                 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2454.85 Safari/537.36',
+                 'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:40.0) Gecko/20100101 Firefox/40.0',
+                 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) AppleWebKit/600.7.12 (KHTML, like Gecko) Version/7.1.7 Safari/537.85.16',
+                 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.152 Safari/537.36',
+                 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2.1 Safari/605.1.1',
+                 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0',
+                 'Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Geck',
+                 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 OPR/106.0.0',
+                 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115',
+                 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36 Edg/107.0.1418.2']
+
+    needed_pages.each do |job|
+      begin
+        usa = usa_array[rand(usa_array.length)]
+        @logger_one_job.info 'User agent: ' + usa
+
+        link = job.link_person.to_s
+        response = HTTParty.get(link, {headers: {'User-Agent': usa}, })
+
+        page = Nokogiri::HTML(response)
+        # @logger_one_job.info page.to_s
+
+        name = page.at_css('h1.top-card-layout__title').nil? ? nil : page.at_css('h1.top-card-layout__title').text.strip
+        subtitle = page.at_css('h2.top-card-layout__headline').nil? ? '' : page.at_css('h2.top-card-layout__first-subline').text.strip
+
+        location_div = page.at_xpath("//div[@class='profile-info-subheader']")
+        if location_div.nil?
+          location = ''
+        else
+          location = location_div.at_css("span").text.strip
+        end
+
+        description = page.at_css('div.core-section-container__content')
+
+        job.name = name
+        job.subtitle = subtitle
+        job.location = location
+        job.description = description
+        job.attempts = job.attempts + 1
+
+        if job.save
+          @logger_one_job.info 'location: ' + job.location + ' | ' + job.id_person + ' | searched_by: ' + job.search_by + ' : successfully saved'
+        end
+
+      rescue HTTParty::Error => e
+        # Handle HTTP errors (e.g., 404)
+        @logger_one_job.warn "HTTP Error: #{e.message} for #{job.id_person}"
+        job.attempts = job.attempts + 1
+        job.save
+      rescue StandardError => e
+        # Handle other types of errors
+        @logger_one_job.warn "Error: #{e.message} for #{job.id_person}"
+        job.attempts = job.attempts + 1
+        job.save
+      end
+
+      randon_sleep = rand(11) + 2
+      sleep randon_sleep
+    end
+
+    render :finish
+  end
+
+  def list_people(link, search, deep_page = 1)
+
+    profile = Selenium::WebDriver::Firefox::Profile.from_name("default")
+    options = Selenium::WebDriver::Firefox::Options.new(profile: profile)
+    options.add_argument('--start-maximized')
+    options.add_argument('--ignore-certificate-errors')
+    options.add_argument('--disable-popup-blocking')
+    options.add_argument('--disable-translate')
+
+    wait = Selenium::WebDriver::Wait.new(timeout: 11)
+
+    driver = Selenium::WebDriver.for :firefox, options: options
+    driver.manage.window.resize_to(1910, 1039)
+
+    begin
+      driver.get link + '&keywords=' + search
+      @custom_logger.info "--------- Start #{search} ---------"
+    rescue HTTParty::Error => e
+      @custom_logger.warn "HTTP Error: #{e.message}"
+    rescue StandardError => e
+      @custom_logger.warn "Error: #{e.message}"
+    end
+
+    begin
+      # get first page ---------
+      html_link_collection = list_one_page_people(driver, wait, 1)
+      @list_link_jobs = check_and_save_people(html_link_collection, search)
+    rescue StandardError => e
+      @custom_logger.warn "Error: #{e.message}"
+    end
+
+    # get all next pages ---------
+    page = 2
+    while page <= deep_page
+      begin
+        button_page = wait.until do
+          driver.find_element(xpath: "//button[contains(@aria-label, 'Page #{page}')]")
+        end
+        button_page.click
+      rescue StandardError => e
+        @custom_logger.warn "Error: #{e.message}"
+        page = deep_page
+      end
+
+      sleep 3
+      html_link_collection = list_one_page_people(driver, wait, page)
+      @list_link_jobs = @list_link_jobs | check_and_save_people(html_link_collection, search)
+      page += 1
+    end
+    @list_link_jobs
+  end
+
+  def list_one_page_people(driver, wait, page)
+    items_per_page = 10
+    begin
+      sleep 3
+      link_collection = get_list_people(driver, wait)
+      # --------- go to last received job ----------
+      driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth' });", link_collection[-1])
+
+      sleep 5
+      link_collection = get_list_people(driver, wait)
+      log_links(link_collection, '1', page)
+      if link_collection.length > items_per_page - 1
+        return link_collection
+      end
+      # --------- go to the bottom if got not all jobs ----------
+      sleep 3
+
+      # find buttons of pagination
+      js_code = "window.element = document.getElementsByClassName('artdeco-pagination__indicator');"
+      driver.execute_script(js_code)
+      wait.until { driver.execute_script("return window.element !== undefined;") }
+      scroll_down = driver.execute_script("return window.element;")
+
+      # if no pagination - find block of feedback
+      if scroll_down[0] == nil
+        js_code = "window.element = document.getElementsByClassName('reusable-search__entity-result-list');"
+        driver.execute_script(js_code)
+        wait.until { driver.execute_script("return window.element !== undefined;") }
+        scroll_down = driver.execute_script("return window.element;")
+      end
+
+      driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth' });", scroll_down[0])
+
+      sleep 9
+      link_collection_2 = get_list_companies(driver, wait)
+      log_links(link_collection_2, '2', page)
+      link_collection = link_collection | link_collection_2
+      if link_collection.length > items_per_page - 1
+        return link_collection
+      end
+
+      link_collection
+
+    rescue StandardError => e
+      @custom_logger.warn "Error: #{e.message}"
+    end
 
   end
 
+  def get_list_people(driver, wait)
+    begin
+      html_link_collection = wait.until do
+        driver.find_elements(xpath: '//span[contains(@class,"entity-result__title-line")]/span/a')
+      end
+    rescue StandardError => e
+      @custom_logger.warn "Error: #{e.message}"
+    end
+  end
+
+  def check_and_save_people(object_links, search)
+    list_link_people = []
+    object_links.each_with_index do |obj, index|
+      begin
+        link = obj.attribute("href").split('?')[0]
+        @custom_logger.info (index + 1).to_s + ': ' + link.to_s.truncate(83)
+
+        if link.include?('/in/')
+          list_link_people << link
+          id_person = link.split('/')[4]
+          if LinkedinPerson.where(id_person: id_person).empty?
+            new_person = LinkedinPerson.new
+            new_person.link_person = link
+            new_person.id_person = id_person
+            new_person.search_by = search
+            new_person.save
+            @custom_logger.info 'Saved: ' + id_person
+          else
+            @custom_logger.info 'Person: ' + id_person + ' already exist in DB'
+          end
+        end
+      rescue StandardError => e
+        @custom_logger.warn "Error: #{e.message}"
+      end
+    end
+    @custom_logger.info 'Amount links: ' + object_links.length.to_s
+    list_link_people
+  end
+
+
+  # ---------  GET Companies ------------------------------------------------
+
+  def companies
+    threads = []
+
+    threads << Thread.new do
+      # search = 'cyber security'
+      search = 'machine learning'
+
+      link = 'https://www.linkedin.com/search/results/companies/?companyHqGeo=%5B%22101452733%22%5D'
+      list_companies(link, search, 1)
+
+      # sleep 5
+      #
+      # link = 'https://www.linkedin.com/search/results/companies/?companyHqGeo=%5B%22102478259%22%5D'
+      # list_companies(link, search, 3)
+
+      # sleep 7
+      #
+      # link = 'https://www.linkedin.com/search/results/companies/?companyHqGeo=%5B%22101452733%22%5D'
+      # list_companies(link, search, 3)
+    end
+
+    sleep 130
+    empty_attempts = 0
+    while empty_attempts < 11
+      if get_unfilled_companies.length > 0
+        @logger_one_job.info '**********************  Pass with: ' + get_unfilled_companies.length.to_s + ' jobs to get *****************'
+        # threads << Thread.new do
+        one_company
+        # end
+        empty_attempts = 0
+      else
+        empty_attempts += 1
+        sleep 3
+      end
+    end
+    @logger_one_job.info '**********************  FINISH *****************'
+
+    threads.each(&:join)
+
+    render :finish
+  end
+
+  def one_company
+    needed_pages = get_unfilled_companies.order(:id)
+
+    if needed_pages.length == 0
+      @output = 'Nothing to scrap'
+    end
+
+    usa_array = ['Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36',
+                 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2454.85 Safari/537.36',
+                 'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:40.0) Gecko/20100101 Firefox/40.0',
+                 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) AppleWebKit/600.7.12 (KHTML, like Gecko) Version/7.1.7 Safari/537.85.16',
+                 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.152 Safari/537.36']
+
+    needed_pages.each do |job|
+      begin
+        usa = usa_array[rand(usa_array.length)]
+        @logger_one_job.info 'User agent: ' + usa
+
+        link = job.link_company.to_s
+        response = HTTParty.get(link, {headers: {'User-Agent': usa}, })
+
+        page = Nokogiri::HTML(response)
+        # @logger_one_job.info page.to_s
+
+        title_company = page.at_css('h1.top-card-layout__title').nil? ? '' : page.at_css('h1.top-card-layout__title').text.strip
+        website = page.at_xpath("//a[@data-tracking-control-name='about_website']").nil? ? '' : page.at_xpath("//a[@data-tracking-control-name='about_website']").text.strip
+
+        headquarter_div = page.at_xpath("//div[@data-test-id='about-us__headquarters']")
+        if headquarter_div.nil?
+          headquarter = ''
+        else
+          headquarter = headquarter_div.css(".text-color-text").size >= 2 ? headquarter_div.css(".text-color-text")[1].text.strip : ''
+        end
+
+        size_div = page.at_xpath("//div[@data-test-id='about-us__size']")
+        if size_div.nil?
+          size = ''
+        else
+          size = size_div.css(".text-color-text").size >= 2 ? size_div.css(".text-color-text")[1].text.strip : ''
+        end
+
+        founded_div = page.at_xpath("//div[@data-test-id='about-us__foundedOn']")
+        if founded_div.nil?
+          founded = ''
+        else
+          founded = founded_div.css(".text-color-text").size >= 2 ? founded_div.css(".text-color-text")[1].text.strip : ''
+        end
+
+        company_type_div = page.at_xpath("//div[@data-test-id='about-us__organizationType']")
+
+        if company_type_div.nil?
+          company_type = ''
+        else
+          company_type = company_type_div.css(".text-color-text").size >= 2 ? company_type_div.css(".text-color-text")[1].text.strip : ''
+        end
+
+        description = page.at_css('div.core-section-container__content p.break-words')
+
+        job.name = title_company
+        job.website = website
+        job.headquarters = headquarter
+        job.number_employees = size
+        job.founded = founded
+        job.company_type = company_type
+        job.description = description
+        job.attempts = job.attempts + 1
+
+        if job.save
+          @logger_one_job.info job.name + ' | ' + job.id_company + ' | searched_by: ' + job.search_by + ' : successfully saved'
+        end
+
+      rescue HTTParty::Error => e
+        # Handle HTTP errors (e.g., 404)
+        @logger_one_job.warn "HTTP Error: #{e.message} for #{job.id_company}"
+        job.attempts = job.attempts + 1
+        job.save
+      rescue StandardError => e
+        # Handle other types of errors
+        @logger_one_job.warn "Error: #{e.message} for #{job.id_company}"
+        job.attempts = job.attempts + 1
+        job.save
+      end
+
+      randon_sleep = rand(11) + 2
+      sleep randon_sleep
+    end
+
+    render :finish
+  end
+
+  def list_companies(link, search, deep_page = 1)
+
+    profile = Selenium::WebDriver::Firefox::Profile.from_name("default")
+    options = Selenium::WebDriver::Firefox::Options.new(profile: profile)
+    options.add_argument('--start-maximized')
+    options.add_argument('--ignore-certificate-errors')
+    options.add_argument('--disable-popup-blocking')
+    options.add_argument('--disable-translate')
+
+    wait = Selenium::WebDriver::Wait.new(timeout: 11)
+
+    driver = Selenium::WebDriver.for :firefox, options: options
+    driver.manage.window.resize_to(1910, 1039)
+
+    begin
+      driver.get link + '&keywords=' + search
+      @custom_logger.info '--------- Start cyber security ---------'
+    rescue HTTParty::Error => e
+      @custom_logger.warn "HTTP Error: #{e.message}"
+    rescue StandardError => e
+      @custom_logger.warn "Error: #{e.message}"
+    end
+
+    begin
+      # get first page ---------
+      html_link_collection = list_one_page_companies(driver, wait, 1)
+      @list_link_jobs = check_and_save_companies(html_link_collection, search)
+    rescue StandardError => e
+      @custom_logger.warn "Error: #{e.message}"
+    end
+
+    # get all next pages ---------
+    page = 2
+    while page <= deep_page
+      begin
+        button_page = wait.until do
+          driver.find_element(xpath: "//button[contains(@aria-label, 'Page #{page}')]")
+        end
+        button_page.click
+      rescue StandardError => e
+        @custom_logger.warn "Error: #{e.message}"
+        page = deep_page
+      end
+
+      sleep 3
+      html_link_collection = list_one_page_companies(driver, wait, page)
+      @list_link_jobs = @list_link_jobs | check_and_save_companies(html_link_collection, search)
+      page += 1
+    end
+    @list_link_jobs
+  end
+
+  def list_one_page_companies(driver, wait, page)
+    jobs_per_page = 10
+    begin
+      sleep 3
+      link_collection = get_list_companies(driver, wait)
+      # --------- go to last received job ----------
+      driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth' });", link_collection[-1])
+
+      sleep 5
+      link_collection = get_list_companies(driver, wait)
+      log_links(link_collection, '1', page)
+      if link_collection.length > jobs_per_page - 1
+        return link_collection
+      end
+      # --------- go to the bottom if got not all jobs ----------
+      sleep 3
+
+      # find buttons of pagination
+      js_code = "window.element = document.getElementsByClassName('artdeco-pagination__indicator');"
+      driver.execute_script(js_code)
+      wait.until { driver.execute_script("return window.element !== undefined;") }
+      scroll_down = driver.execute_script("return window.element;")
+
+      # if no pagination - find block of feedback
+      if scroll_down[0] == nil
+        js_code = "window.element = document.getElementsByClassName('reusable-search__entity-result-list');"
+        driver.execute_script(js_code)
+        wait.until { driver.execute_script("return window.element !== undefined;") }
+        scroll_down = driver.execute_script("return window.element;")
+      end
+
+      driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth' });", scroll_down[0])
+
+      sleep 9
+      link_collection_2 = get_list_companies(driver, wait)
+      log_links(link_collection_2, '2', page)
+      link_collection = link_collection | link_collection_2
+      if link_collection.length > jobs_per_page - 1
+        return link_collection
+      end
+
+      link_collection
+
+    rescue StandardError => e
+      @custom_logger.warn "Error: #{e.message}"
+    end
+
+  end
+
+  def get_list_companies(driver, wait)
+    begin
+      html_link_collection = wait.until do
+        driver.find_elements(xpath: '//span[contains(@class,"entity-result__title-line")]/span/a')
+      end
+    rescue StandardError => e
+      @custom_logger.warn "Error: #{e.message}"
+    end
+  end
+
+  def check_and_save_companies(object_links, search)
+    list_link_companies = []
+    object_links.each_with_index do |obj, index|
+      begin
+        link = obj.attribute("href")
+        @custom_logger.info (index + 1).to_s + ': ' + link.to_s.truncate(83)
+
+        if link.include?('/company/')
+          list_link_companies << link
+          company_id = link.split('/')[4]
+          if LinkedinCompany.where(id_company: company_id).empty?
+            new_company = LinkedinCompany.new
+            new_company.link_company = link
+            new_company.id_company = company_id
+            new_company.search_by = search
+            @custom_logger.info 'Saved: ' + company_id
+            new_company.save
+          else
+            @custom_logger.info 'Company: ' + company_id + ' already exist in DB'
+          end
+        end
+      rescue StandardError => e
+        @custom_logger.warn "Error: #{e.message}"
+      end
+    end
+    @custom_logger.info 'Amount links: ' + object_links.length.to_s
+    list_link_companies
+  end
+
+  # ---------  END Companies ------------------------------------------------
+
+
+  def index
+
+    threads = []
+
+    threads << Thread.new do
+      # list_jobs('ruby on rails', 'Belgium', 1)
+      # sleep 5
+      list_jobs('C#', 'Norway', 3)
+      # sleep 5
+      # list_jobs('ruby on rails', 'Germany', 2)
+    end
+
+    sleep 130
+    empty_attempts = 0
+    while empty_attempts < 11
+      if get_unfilled_jobs.length > 0
+        @logger_one_job.info '**********************  Pass with: ' + get_unfilled_jobs.length.to_s + ' jobs to get *****************'
+        # threads << Thread.new do
+        one_job
+        # end
+        empty_attempts = 0
+      else
+        empty_attempts += 1
+        sleep 3
+      end
+    end
+    @logger_one_job.info '**********************  FINISH *****************'
+
+    # main - wait end of all Threads
+    threads.each(&:join)
+
+  end
 
   def one_job
     needed_pages = get_unfilled_jobs.order(:id)
@@ -65,7 +671,7 @@ class ScraperController < ApplicationController
     needed_pages.each do |job|
       begin
         usa = usa_array[rand(usa_array.length)]
-        @custom_logger.info 'User agent: ' + usa
+        @logger_one_job.info 'User agent: ' + usa
 
         response = HTTParty.get(job.link_job, {headers: {'User-Agent': usa}, })
 
@@ -75,23 +681,27 @@ class ScraperController < ApplicationController
         posted_job = page.at_css('span.posted-time-ago__text').text.strip
         description = page.at_css('section div.show-more-less-html__markup')
         posted_date = parse_duration_to_datetime(posted_job)
-        @custom_logger.info 'Title of Job: ' + title_job + ' | Job posted: ' + posted_date.to_s
+        @logger_one_job.info 'Title of Job: ' + title_job + ' | Job posted: ' + posted_date.to_s
 
         job.title = title_job
         job.description = description
         job.posted_at = posted_date
+        job.attempts = job.attempts + 1
 
         if job.save
-          @custom_logger.info 'Details of Job  №: ' + job.linkedin_id_job + ' successfully saved'
+          @logger_one_job.info job.linkedin_id_job + ' | ' + job.type_job + ' | ' + job.location + ' : successfully saved'
         end
 
       rescue HTTParty::Error => e
         # Handle HTTP errors (e.g., 404)
-        @custom_logger.warn "HTTP Error: #{e.message} for #{job.linkedin_id_job}"
-
+        @logger_one_job.warn "HTTP Error: #{e.message} for #{job.linkedin_id_job}"
+        job.attempts = job.attempts + 1
+        job.save
       rescue StandardError => e
         # Handle other types of errors
-        @custom_logger.warn "Error: #{e.message} for #{job.linkedin_id_job}"
+        @logger_one_job.warn "Error: #{e.message} for #{job.linkedin_id_job}"
+        job.attempts = job.attempts + 1
+        job.save
       end
 
       randon_sleep = rand(11) + 2
@@ -143,7 +753,7 @@ class ScraperController < ApplicationController
       location = wait.until do
         driver.find_element(xpath: "//*[contains(@id, 'jobs-search-box-location')]")
       end
-      sleep 2
+      sleep 4
       location.clear
       fill_form(location, area, true)
     rescue StandardError => e
@@ -220,12 +830,32 @@ class ScraperController < ApplicationController
         return link_collection
       end
 
-      # --------- go up if not all jobs yet ----------
       driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth' });", link_collection_2[link_collection_2.length / 3])
-      sleep 13
+      sleep 7
       link_collection_3 = get_list_jobs(driver, wait)
       log_links(link_collection_3, '3', page)
       link_collection = link_collection | link_collection_3
+      if link_collection.length > jobs_per_page - 1
+        return link_collection
+      end
+
+      driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth' });", link_collection_3[(link_collection_3.length / 3) * 2])
+      sleep 11
+      link_collection_4 = get_list_jobs(driver, wait)
+      log_links(link_collection_4, '4', page)
+      link_collection = link_collection | link_collection_4
+      if link_collection.length > jobs_per_page - 1
+        return link_collection
+      end
+
+      # --------- go up if not all jobs yet ----------
+      driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth' });", scroll_down[0])
+      sleep 13
+      link_collection_5 = get_list_jobs(driver, wait)
+      log_links(link_collection_5, '5', page)
+
+      link_collection = link_collection | link_collection_3
+
     rescue StandardError => e
       @custom_logger.warn "Error: #{e.message} for #{job.linkedin_id_job}"
     end
@@ -264,10 +894,10 @@ class ScraperController < ApplicationController
   end
 
   def log_links(object_links, n_pass, page)
-    object_links.each_with_index do |obj, index|
-      link = obj.attribute("href")
-      @custom_logger.info (index + 1).to_s + ': ' + link.to_s.truncate(83)
-    end
+    # object_links.each_with_index do |obj, index|
+    #   link = obj.attribute("href")
+    #   @custom_logger.info (index + 1).to_s + ': ' + link.to_s.truncate(83)
+    # end
     @custom_logger.info '--------------  Page: ' + page.to_s + ' Pass: ' + n_pass + ' amount of links: ' + object_links.length.to_s
   end
 
@@ -277,7 +907,7 @@ class ScraperController < ApplicationController
         driver.find_elements(xpath: '//a[contains(@class,"job-card-list__title")]')
       end
     rescue StandardError => e
-      @custom_logger.warn "Error: #{e.message} for #{job.linkedin_id_job}"
+      @custom_logger.warn "Error: #{e.message}"
     end
     # ------ getting list using JS ----------------------
     # js_code_s = "window.el = document.getElementsByClassName('job-card-list__title'); console.log('Amount = '+Object.keys(el).length);"
@@ -297,7 +927,7 @@ class ScraperController < ApplicationController
     end
   end
 
-# Function to convert human-readable duration to datetime
+  # Function to convert human-readable duration to datetime
   def parse_duration_to_datetime(duration_str)
     duration = ChronicDuration.parse(duration_str)
     current_datetime = Time.now
@@ -310,10 +940,20 @@ class ScraperController < ApplicationController
   def set_logger
     @custom_logger = Logger.new("log/scraper_link.log")
     @custom_logger.datetime_format = "%Y-%m-%d %H:%M:%S"
+    @logger_one_job = Logger.new("log/scraper_one_job.log")
+    @logger_one_job.datetime_format = "%Y-%m-%d %H:%M:%S"
   end
 
   def get_unfilled_jobs
-    Linkedin.where('title IS ? And posted_at IS ?', nil, nil)
+    Linkedin.where('title IS ? And posted_at IS ? And attempts < 5', nil, nil)
+  end
+
+  def get_unfilled_companies
+    LinkedinCompany.where('name IS ? And attempts < 5', nil)
+  end
+
+  def get_unfilled_people
+    LinkedinPerson.where('name IS ? And attempts < 5', nil).limit(21)
   end
 
   def one_job_selenium
